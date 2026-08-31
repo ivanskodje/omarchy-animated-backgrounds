@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "ivanskodje.animated-backgrounds",
+  "name": "Animated Backgrounds",
+  "version": "1.0.0",
+  "author": "ivanskodje",
+  "description": "Animated desktop backgrounds drawn in the active theme's colours.",
+  "homepage": "https://github.com/ivanskodje/omarchy-animated-backgrounds",
+  "license": "MIT",
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
+}
