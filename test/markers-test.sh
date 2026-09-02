@@ -102,6 +102,16 @@ bash "$sh" remove "$plug"
 check "identical marker removed"     '[ ! -e "$dest/animated-grid.png" ]'
 check "modified marker kept"         '[ -f "$dest/animated-rain.png" ]'
 check "unrelated animated-* kept"    '[ -f "$dest/animated-custom.png" ]'
+check "no claim or grab left behind" '[ -z "$(find "$dest" \( -name ".claim-*" -o -name ".grab-*" \) -print -quit)" ]'
+teardown
+
+# A marker the user has edited must be kept without ever being moved.
+setup
+bash "$sh" install "$plug"
+printf 'tampered' >>"$dest/animated-rain.png"
+inode=$(stat -c %i "$dest/animated-rain.png")
+bash "$sh" remove "$plug"
+check "kept file is never renamed"   '[ "$(stat -c %i "$dest/animated-rain.png")" = "$inode" ]'
 teardown
 
 # Symlink at a marker name, this time on the delete path.
@@ -171,6 +181,61 @@ echo "someone else's file" >"$root/next-theme/backgrounds/animated-grid.png"
 make_shim sha256sum 2
 PATH="$root/shim:$PATH" bash "$sh" remove "$plug"
 check "swap between hash and unlink spares the new file"    '[ "$(cat "$dest/animated-grid.png")" = "someone else'"'"'s file" ]'
+teardown
+
+echo
+echo "basename replaced mid-removal"
+
+# Same idea as make_shim, but the swap happens inside the already pinned directory.
+make_name_shim() {
+  local cmd=$1 fire_on=$2 real
+  real=$(command -v "$cmd")
+  mkdir -p "$root/shim"
+  cat >"$root/shim/$cmd" <<SHIM
+#!/bin/bash
+n=1
+[ -f "$root/shim/.n-$cmd" ] && n=\$(( \$(cat "$root/shim/.n-$cmd") + 1 ))
+echo "\$n" >"$root/shim/.n-$cmd"
+if [ "\$n" = "$fire_on" ]; then
+  printf 'intruder' >"$dest/.intruder"
+  mv -f "$dest/.intruder" "$dest/animated-grid.png"
+fi
+exec "$real" "\$@"
+SHIM
+  chmod 755 "$root/shim/$cmd"
+}
+
+# The name is taken over after the identity check and before the unlink, which is
+# the last gap an external command can be wedged into.
+setup
+bash "$sh" install "$plug"
+make_name_shim stat 2
+PATH="$root/shim:$PATH" bash "$sh" remove "$plug"
+check "replacement at the name survives" '[ "$(cat "$dest/animated-grid.png" 2>/dev/null)" = "intruder" ]'
+check "our own marker still removed"     '[ ! -e "$dest/animated-rain.png" ]'
+check "no claim or grab left behind"     '[ -z "$(find "$dest" \( -name ".claim-*" -o -name ".grab-*" \) -print -quit)" ]'
+teardown
+
+echo
+echo "symlinked theme directory"
+
+# Omarchy recreates the theme dir with rm -rf plus mv, so a symlink there is never
+# legitimate, and -d follows it.
+setup
+rm -rf "$HOME/.local/state/omarchy/current/theme"
+mkdir -p "$root/decoy-theme"
+ln -s "$root/decoy-theme" "$HOME/.local/state/omarchy/current/theme"
+bash "$sh" install "$plug"
+check "symlinked theme refused on install" '[ -z "$(find "$root/decoy-theme" -type f -print -quit)" ]'
+teardown
+
+setup
+mkdir -p "$root/decoy-theme/backgrounds"
+cp "$plug/markers/animated-grid.png" "$root/decoy-theme/backgrounds/"
+rm -rf "$HOME/.local/state/omarchy/current/theme"
+ln -s "$root/decoy-theme" "$HOME/.local/state/omarchy/current/theme"
+bash "$sh" remove "$plug"
+check "symlinked theme refused on remove"  '[ -f "$root/decoy-theme/backgrounds/animated-grid.png" ]'
 teardown
 
 echo
