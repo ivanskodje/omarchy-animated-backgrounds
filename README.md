@@ -145,4 +145,6 @@ Swap the verb for `rainStyle` or `pauseWhenCovered`.
 
 ## License
 
-MIT
+This project is MIT. 
+
+The one vendored file, `ScreenRemapGuard.qml`, comes from Omarchy under its own MIT notice, reproduced in [docs/THIRD-PARTY-NOTICES.md](docs/THIRD-PARTY-NOTICES.md).
