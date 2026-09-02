@@ -143,6 +143,8 @@ adds a check mark:
 
 Swap the verb for `rainStyle` or `pauseWhenCovered`.
 
+`bash test/markers-test.sh` exercises `markers.sh` against a throwaway `HOME`: publication, the never-overwrite rule, symlinked paths, and a theme switch injected mid-operation.
+
 ## License
 
 This project is MIT. 
