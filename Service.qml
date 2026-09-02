@@ -62,7 +62,7 @@ Item {
   function installMarkers() {
     if (!settings.markers || markerProc.running)
       return
-    markerProc.command = ["bash", pluginDir + "/markers.sh", "install", pluginDir]
+    markerProc.command = ["/usr/bin/bash", pluginDir + "/markers.sh", "install", pluginDir]
     markerProc.running = true
   }
 
@@ -160,7 +160,7 @@ Item {
 
   Process {
     id: probe
-    command: ["readlink", "-f", root.stateDir + "/background"]
+    command: ["/usr/bin/readlink", "-f", root.stateDir + "/background"]
     stdout: StdioCollector {
       // Ignore an empty read: ln -nsf leaves a brief window with no target.
       onStreamFinished: {

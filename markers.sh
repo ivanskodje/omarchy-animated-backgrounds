@@ -5,6 +5,9 @@
 
 set -u
 
+PATH=/usr/bin:/bin
+export PATH
+
 dest="$HOME/.local/state/omarchy/current/theme/backgrounds"
 
 tmp=""
@@ -70,16 +73,21 @@ remove_markers() {
     # Verify through a spare link first, so a file that will be kept is never moved.
     claim=$(mktemp ./.claim-XXXXXXXX 2>/dev/null) || continue
     ln -f -- "$name" "$claim" 2>/dev/null || { rm -f -- "$claim"; claim=""; continue; }
-    ours=$(sha256sum -- "$f" 2>/dev/null | cut -d" " -f1)
-    theirs=$(sha256sum -- "$claim" 2>/dev/null | cut -d" " -f1)
+    # Skipping early also caps the hash at the shipped marker's size.
+    if [ "$(stat -c %s -- "$claim" 2>/dev/null)" != "$(stat -c %s -- "$f" 2>/dev/null)" ]; then
+      rm -f -- "$claim"
+      claim=""
+      continue
+    fi
+    ours=$(timeout 10 sha256sum -- "$f" 2>/dev/null | cut -d" " -f1)
+    theirs=$(timeout 10 sha256sum -- "$claim" 2>/dev/null | cut -d" " -f1)
     if [ -z "$ours" ] || [ "$ours" != "$theirs" ]; then
       rm -f -- "$claim"
       claim=""
       continue
     fi
 
-    # Linux cannot unlink a descriptor, so take the name with rename instead:
-    # what comes back is what gets deleted, with nothing able to replace it.
+    # Rename because there is no unlink-by-descriptor: what returns is what is deleted.
     grab=$(mktemp ./.grab-XXXXXXXX 2>/dev/null) || { rm -f -- "$claim"; claim=""; continue; }
     grab_name=$name
     if mv -f -- "$name" "$grab" 2>/dev/null; then

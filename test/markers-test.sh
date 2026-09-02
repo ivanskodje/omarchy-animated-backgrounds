@@ -26,6 +26,14 @@ setup() {
 
 teardown() { rm -rf "$root"; }
 
+# The injection cases need PATH shims, which the script's pinned PATH defeats. They
+# run against a copy with that one line removed; the pinning is tested separately.
+unpinned() {
+  sed '/^PATH=/d; /^export PATH$/d' "$sh" >"$root/markers-unpinned.sh"
+  chmod 755 "$root/markers-unpinned.sh"
+  printf '%s' "$root/markers-unpinned.sh"
+}
+
 echo "install"
 setup
 bash "$sh" install "$plug"
@@ -157,7 +165,7 @@ setup
 mkdir -p "$root/decoy" "$root/next-theme"
 ln -s "$root/decoy" "$root/next-theme/backgrounds"
 make_shim mktemp 1
-PATH="$root/shim:$PATH" bash "$sh" install "$plug"
+PATH="$root/shim:$PATH" bash "$(unpinned)" install "$plug"
 rc=$?
 check "swap before publication writes nothing unvalidated" '[ -z "$(ls -A "$root/decoy")" ]'
 check "swap before publication exits clean"                '[ "$rc" = 0 ]'
@@ -169,7 +177,7 @@ mkdir -p "$root/next-theme/backgrounds"
 echo "someone else's file" >"$root/next-theme/backgrounds/animated-grid.png"
 # Switch lands while hashing.
 make_shim sha256sum 1
-PATH="$root/shim:$PATH" bash "$sh" remove "$plug"
+PATH="$root/shim:$PATH" bash "$(unpinned)" remove "$plug"
 check "swap during hashing spares the new directory"       '[ "$(cat "$dest/animated-grid.png")" = "someone else'"'"'s file" ]'
 teardown
 
@@ -179,7 +187,7 @@ mkdir -p "$root/next-theme/backgrounds"
 echo "someone else's file" >"$root/next-theme/backgrounds/animated-grid.png"
 # Switch lands between the hash and the unlink, the reviewer's exact case.
 make_shim sha256sum 2
-PATH="$root/shim:$PATH" bash "$sh" remove "$plug"
+PATH="$root/shim:$PATH" bash "$(unpinned)" remove "$plug"
 check "swap between hash and unlink spares the new file"    '[ "$(cat "$dest/animated-grid.png")" = "someone else'"'"'s file" ]'
 teardown
 
@@ -210,7 +218,7 @@ SHIM
 setup
 bash "$sh" install "$plug"
 make_name_shim stat 2
-PATH="$root/shim:$PATH" bash "$sh" remove "$plug"
+PATH="$root/shim:$PATH" bash "$(unpinned)" remove "$plug"
 check "replacement at the name survives" '[ "$(cat "$dest/animated-grid.png" 2>/dev/null)" = "intruder" ]'
 check "our own marker still removed"     '[ ! -e "$dest/animated-rain.png" ]'
 check "no claim or grab left behind"     '[ -z "$(find "$dest" \( -name ".claim-*" -o -name ".grab-*" \) -print -quit)" ]'
@@ -236,6 +244,42 @@ rm -rf "$HOME/.local/state/omarchy/current/theme"
 ln -s "$root/decoy-theme" "$HOME/.local/state/omarchy/current/theme"
 bash "$sh" remove "$plug"
 check "symlinked theme refused on remove"  '[ -f "$root/decoy-theme/backgrounds/animated-grid.png" ]'
+teardown
+
+echo
+echo "runtime boundaries"
+
+# A tool planted first in PATH must never be reached by the real script.
+setup
+bash "$sh" install "$plug"
+mkdir -p "$root/evil"
+cat >"$root/evil/sha256sum" <<EVIL
+#!/bin/bash
+touch "$root/evil/EXECUTED"
+exec /usr/bin/sha256sum "\$@"
+EVIL
+chmod 755 "$root/evil/sha256sum"
+PATH="$root/evil:$PATH" bash "$sh" remove "$plug"
+check "shadowed tool in PATH is not run"  '[ ! -e "$root/evil/EXECUTED" ]'
+teardown
+
+# A huge file under a marker name must be rejected on size, not hashed.
+setup
+bash "$sh" install "$plug"
+rm -f "$dest/animated-grid.png"
+truncate -s 12G "$dest/animated-grid.png"
+started=$(date +%s)
+bash "$sh" remove "$plug"
+elapsed=$(( $(date +%s) - started ))
+check "oversized marker is not hashed"    '[ "$elapsed" -lt 5 ] && [ -f "$dest/animated-grid.png" ]'
+teardown
+
+# A FIFO under a marker name must not block the read.
+setup
+mkdir -p "$dest"
+mkfifo "$dest/animated-grid.png"
+timeout 10 bash "$sh" remove "$plug"
+check "fifo at a marker name is skipped"  '[ "$?" != 124 ] && [ -p "$dest/animated-grid.png" ]'
 teardown
 
 echo
