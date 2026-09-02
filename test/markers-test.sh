@@ -237,6 +237,15 @@ bash "$sh" install "$plug"
 check "symlinked theme refused on install" '[ -z "$(find "$root/decoy-theme" -type f -print -quit)" ]'
 teardown
 
+# Same one component higher: current itself replaced by a symlink.
+setup
+rm -rf "$HOME/.local/state/omarchy/current"
+mkdir -p "$root/decoy-current/theme/backgrounds"
+ln -s "$root/decoy-current" "$HOME/.local/state/omarchy/current"
+bash "$sh" install "$plug"
+check "symlinked current refused"          '[ -z "$(find "$root/decoy-current" -type f -print -quit)" ]'
+teardown
+
 setup
 mkdir -p "$root/decoy-theme/backgrounds"
 cp "$plug/markers/animated-grid.png" "$root/decoy-theme/backgrounds/"
@@ -280,6 +289,50 @@ mkdir -p "$dest"
 mkfifo "$dest/animated-grid.png"
 timeout 10 bash "$sh" remove "$plug"
 check "fifo at a marker name is skipped"  '[ "$?" != 124 ] && [ -p "$dest/animated-grid.png" ]'
+teardown
+
+echo
+echo "launch environment and teardown"
+
+# bash sources BASH_ENV before the script's first line, so only the launch site can
+# stop it. These run the argv Service.qml uses; Quickshell's clearEnvironment itself
+# is not reachable from a shell suite, so it is asserted statically below.
+setup
+printf 'touch "%s/BASH_ENV_RAN"\n' "$root" >"$root/evil.sh"
+BASH_ENV="$root/evil.sh" /usr/bin/bash "$sh" install "$plug"
+check "control: BASH_ENV fires on a dirty env" '[ -e "$root/BASH_ENV_RAN" ]'
+rm -f "$root/BASH_ENV_RAN"
+BASH_ENV="$root/evil.sh" env -i HOME="$HOME" /usr/bin/timeout -k 5 30 /usr/bin/bash "$sh" install "$plug"
+check "hostile BASH_ENV is not sourced"        '[ ! -e "$root/BASH_ENV_RAN" ]'
+teardown
+
+check "Service.qml clears the environment"     'grep -q "clearEnvironment: true" "$(dirname "$sh")/Service.qml"'
+check "Service.qml bounds the helper"          'grep -q "/usr/bin/timeout" "$(dirname "$sh")/Service.qml"'
+
+# The destination does not exist yet, so the create path runs; the theme is swapped
+# for a symlinked decoy at exactly that moment.
+setup
+rm -rf "$dest"
+mkdir -p "$root/next-theme"
+make_shim mkdir 1
+PATH="$root/shim:$PATH" bash "$(unpinned)" install "$plug"
+check "no create in a replaced theme"          '[ ! -e "$HOME/.local/state/omarchy/current/theme/backgrounds" ]'
+teardown
+
+# TERM during the run must clean up and then die of the signal.
+setup
+cat >"$root/killer" <<'KILL'
+#!/bin/bash
+gp=$(awk '{print $4}' "/proc/$PPID/stat")
+kill -TERM "$gp" 2>/dev/null
+exec /usr/bin/mktemp "$@"
+KILL
+chmod 755 "$root/killer"
+mkdir -p "$root/shim"; cp "$root/killer" "$root/shim/mktemp"
+( PATH="$root/shim:$PATH" bash "$(unpinned)" install "$plug" ) 2>/dev/null
+rc=$?
+check "TERM exits with the signal status"      '[ "$rc" -ge 128 ]'
+check "TERM leaves no temporary behind"        '[ -z "$(find "$dest" \( -name ".animated-*" -o -name ".claim-*" -o -name ".grab-*" \) -print -quit)" ]'
 teardown
 
 echo

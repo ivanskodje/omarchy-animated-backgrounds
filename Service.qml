@@ -62,7 +62,8 @@ Item {
   function installMarkers() {
     if (!settings.markers || markerProc.running)
       return
-    markerProc.command = ["/usr/bin/bash", pluginDir + "/markers.sh", "install", pluginDir]
+    markerProc.command = ["/usr/bin/timeout", "-k", "5", "30",
+                          "/usr/bin/bash", pluginDir + "/markers.sh", "install", pluginDir]
     markerProc.running = true
   }
 
@@ -70,6 +71,8 @@ Item {
 
   Process {
     id: markerProc
+    clearEnvironment: true
+    environment: ({ HOME: root.home })
     onExited: function(exitCode) {
       if (exitCode !== 0)
         console.warn("animated-backgrounds: markers.sh exited " + exitCode
@@ -160,7 +163,10 @@ Item {
 
   Process {
     id: probe
-    command: ["/usr/bin/readlink", "-f", root.stateDir + "/background"]
+    clearEnvironment: true
+    environment: ({ HOME: root.home })
+    command: ["/usr/bin/timeout", "-k", "5", "10",
+              "/usr/bin/readlink", "-f", root.stateDir + "/background"]
     stdout: StdioCollector {
       // Ignore an empty read: ln -nsf leaves a brief window with no target.
       onStreamFinished: {

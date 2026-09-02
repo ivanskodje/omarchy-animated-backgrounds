@@ -21,19 +21,29 @@ cleanup() {
   [ -n "$grab" ] && ln -- "$grab" "$grab_name" 2>/dev/null && rm -f -- "$grab"
   true
 }
-trap cleanup EXIT INT TERM
-
-# Omarchy recreates these with rm -rf plus mv, so a symlink is never legitimate here.
-theme_dir_ok() {
-  local base="$HOME/.local/state/omarchy/current"
-  [ ! -L "$base" ] && [ ! -L "$base/theme" ] && [ -d "$base/theme" ]
-}
+trap cleanup EXIT
+trap 'cleanup; trap - INT; kill -INT $$' INT
+trap 'cleanup; trap - TERM; kill -TERM $$' TERM
 
 # Bare filenames only below: the cwd keeps the validated inode, the path does not.
+# Omarchy recreates these with rm -rf plus mv, so a symlink is never legitimate.
 enter_dest() {
-  theme_dir_ok || return 1
-  [ -d "$dest" ] && [ ! -L "$dest" ] || return 1
-  cd -P -- "$dest" 2>/dev/null || return 1
+  cd -P -- "$HOME/.local/state/omarchy" 2>/dev/null || return 1
+
+  [ ! -L current ] && [ -d current ] || return 1
+  cd -P -- current || return 1
+  [ -O . ] || return 1
+
+  [ ! -L theme ] && [ -d theme ] || return 1
+  cd -P -- theme || return 1
+  [ -O . ] || return 1
+
+  [ ! -L backgrounds ] || return 1
+  if [ ! -d backgrounds ]; then
+    [ "${1:-}" = create ] || return 1
+    mkdir backgrounds 2>/dev/null || return 1
+  fi
+  cd -P -- backgrounds || return 1
   [ -O . ]
 }
 
@@ -43,7 +53,7 @@ dest_is_live() {
 
 install_markers() {
   local f name
-  enter_dest || return 1
+  enter_dest create || return 1
   for f in "$src"/markers/animated-*.png; do
     [ -e "$f" ] || continue                  # unmatched glob stays literal
 
@@ -118,13 +128,11 @@ case "${1:-}" in
   install)
     src="${2:-}"
     resolve_src || exit 0
-    theme_dir_ok || exit 0
-    mkdir -p "$dest" 2>/dev/null || exit 0
     install_markers || exit 0
 
     dest_is_live || {
       cd / || exit 0
-      mkdir -p "$dest" 2>/dev/null && install_markers
+      install_markers
     }
     exit 0
     ;;
