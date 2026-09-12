@@ -85,6 +85,15 @@ Item {
     source: root.stateDir + "/theme/colors.toml"
   }
 
+  FileView {
+    id: userShellConfig
+    path: home + "/.config/omarchy/shell.json"
+    watchChanges: true
+    onFileChanged: reload()
+    onLoaded: settingsRevision++
+  }
+  property int settingsRevision: 0
+
   // Inline on this plugin's shell.json entry, which is where the shell requires
   // plugin settings to live. The entry exists while the plugin is enabled, and
   // shellConfig is replaced on save, so every key here hot-reloads.
@@ -92,11 +101,25 @@ Item {
     id: settings
 
     readonly property var entry: {
+      var revision = root.settingsRevision  // binding dependency: user file reloads
       var entries = root.shell && root.shell.shellConfig
-        && Array.isArray(root.shell.shellConfig.plugins) ? root.shell.shellConfig.plugins : []
-      for (var i = 0; i < entries.length; i++)
-        if (entries[i] && String(entries[i].id) === root.pluginId)
-          return entries[i]
+        && Array.isArray(root.shell.shellConfig.plugins) ? root.shell.shellConfig.plugins : null
+      if (!Array.isArray(entries)) {
+        // Omarchy 4.0.3 hands plugins a scoped shell facade without
+        // shellConfig, so read the canonical user file directly when the host
+        // does not hand the config object over.
+        try {
+          var parsed = JSON.parse(String(userShellConfig.text() || "{}"))
+          entries = parsed && Array.isArray(parsed.plugins) ? parsed.plugins : null
+        } catch (e) {
+          entries = null
+        }
+      }
+      if (Array.isArray(entries)) {
+        for (var i = 0; i < entries.length; i++)
+          if (entries[i] && String(entries[i].id) === root.pluginId)
+            return entries[i]
+      }
       return ({})
     }
 
