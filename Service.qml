@@ -132,15 +132,15 @@ Item {
   }
 
   // updateEntryInline replaces the entry, so merge over the current values.
-  function persist(patch) {
+  function persist(key, value) {
     if (!shell || typeof shell.updateEntryInline !== "function")
-      return
+      return settings[key]
     var next = { id: root.pluginId }
     for (var k in settings.entry)
       if (k !== "id") next[k] = settings.entry[k]
-    for (var p in patch)
-      next[p] = patch[p]
+    next[key] = value
     shell.updateEntryInline(root.pluginId, next)
+    return value
   }
 
   // Timing lives here, not in SynthwaveGrid: one driver for every screen, so the
@@ -213,44 +213,48 @@ Item {
     // One verb per setting, always returning the resulting value. Quickshell
     // refuses a call with no arguments, so reading needs an explicit `get`.
     function themeColors(value: string): string {
+      var result = settings.themeColors
       if (value === "true" || value === "false")
-        root.persist({ themeColors: value === "true" })
+        result = root.persist("themeColors", value === "true")
       else if (value === "toggle")
-        root.persist({ themeColors: !settings.themeColors })
+        result = root.persist("themeColors", !settings.themeColors)
       else if (value !== "get")
         return "usage: themeColors get|true|false|toggle"
-      return settings.themeColors ? "true" : "false"
+      return result ? "true" : "false"
     }
 
     function rainStyle(value: string): string {
+      var result = settings.rainStyle
       if (value === "dense" || value === "light")
-        root.persist({ rainStyle: value })
+        result = root.persist("rainStyle", value)
       else if (value === "toggle")
-        root.persist({ rainStyle: settings.rainStyle === "light" ? "dense" : "light" })
+        result = root.persist("rainStyle", settings.rainStyle === "light" ? "dense" : "light")
       else if (value !== "get")
         return "usage: rainStyle get|dense|light|toggle"
-      return settings.rainStyle
+      return result
     }
 
     function pauseWhenCovered(value: string): string {
+      var result = settings.pauseWhenCovered
       if (value === "true" || value === "false")
-        root.persist({ pauseWhenCovered: value === "true" })
+        result = root.persist("pauseWhenCovered", value === "true")
       else if (value === "toggle")
-        root.persist({ pauseWhenCovered: !settings.pauseWhenCovered })
+        result = root.persist("pauseWhenCovered", !settings.pauseWhenCovered)
       else if (value !== "get")
         return "usage: pauseWhenCovered get|true|false|toggle"
-      return settings.pauseWhenCovered ? "true" : "false"
+      return result ? "true" : "false"
     }
 
     // No toggle: a frame rate has no opposite.
     function fps(value: string): string {
+      var result = settings.fps
       if (value !== "get") {
-        var n = Number(value)
+        var n = Math.round(Number(value))
         if (!(n > 0))
           return "usage: fps get|<positive number>"
-        root.persist({ fps: Math.round(n) })
+        result = root.persist("fps", n)
       }
-      return String(settings.fps)
+      return String(result)
     }
   }
 
