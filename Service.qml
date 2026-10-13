@@ -50,7 +50,7 @@ Item {
 
   // A marker image selects its effect. Any other wallpaper turns the plugin off.
   readonly property string effect: {
-    var m = String(wallpaper).split("/").pop().toLowerCase().match(/^animated-(grid|rain)\./)
+    var m = String(wallpaper).split("/").pop().toLowerCase().match(/^animated-(grid|rain|fire)\./)
     return m ? m[1] : ""
   }
 
@@ -302,6 +302,21 @@ Item {
             sceneHeight: screenScope.modelData.height
             horizonY: screenScope.horizonY
             phase: root.gridPhase
+            colors: settings.themeColors ? theme : null
+          }
+        }
+      }
+
+      // Pixelated Doom fire. One buffer per screen, painted nearest-neighbor.
+      SceneWindow {
+        screen: screenScope.modelData
+        anchors { top: true; bottom: true; left: true; right: true }
+        shown: root.effect === "fire"
+
+        scene: Component {
+          DoomFire {
+            running: !root.covered
+            fps: settings.fps
             colors: settings.themeColors ? theme : null
           }
         }

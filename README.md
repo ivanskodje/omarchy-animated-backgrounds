@@ -1,13 +1,15 @@
 # Animated Backgrounds
 
 Animated desktop backgrounds for Omarchy, drawn in the colours of whatever theme you have
-active. Two effects: a synthwave sun and grid horizon, and falling code.
+active. Three effects: a synthwave sun and grid horizon, falling code, and a pixelated Doom fire.
 
 ![The synthwave grid: a banded sun sitting on the horizon above a perspective grid scrolling toward the viewer](docs/grid.gif)
 
 ![The digital rain: columns of mirrored katakana falling down the screen, each stream brightest at its leading glyph](docs/rain.gif)
 
-Both at the shipped defaults, captured on a 3440x1440 display.
+![The Doom fire: pixelated flames white hot at the base, burning up through yellow and orange into black](docs/fire.gif)
+
+All three at the shipped defaults, captured on a 3440x1440 display.
 
 ## Install
 
@@ -26,13 +28,13 @@ on the desktop keep working.
 
 ## Themes
 
-Both effects follow your active theme, with no setup. A monochrome theme gives a monochrome
+All three effects follow your active theme, with no setup. A monochrome theme gives a monochrome
 effect, and light themes work as well as dark ones (mostly).
 
-|  | animated-grid | animated-rain |
-| --- | --- | --- |
-| `vantablack` | ![The grid on vantablack, monochrome against pure black](docs/grid-vantablack.png) | ![The rain on vantablack, pale glyphs on pure black](docs/rain-vantablack.png) |
-| `catppuccin-latte` | ![The grid on catppuccin-latte, a pale sky over a white floor](docs/grid-latte.png) | ![The rain on catppuccin-latte, blue glyphs on off-white](docs/rain-latte.png) |
+|  | animated-grid | animated-rain | animated-fire |
+| --- | --- | --- | --- |
+| `vantablack` | ![The grid on vantablack, monochrome against pure black](docs/grid-vantablack.png) | ![The rain on vantablack, pale glyphs on pure black](docs/rain-vantablack.png) | ![The fire on vantablack, gray flames burning up from a white base into pure black](docs/fire-vantablack.gif) |
+| `catppuccin-latte` | ![The grid on catppuccin-latte, a pale sky over a white floor](docs/grid-latte.png) | ![The rain on catppuccin-latte, blue glyphs on off-white](docs/rain-latte.png) | ![The fire on catppuccin-latte, pink and amber flames darkening to a near black base on off-white](docs/fire-latte.png) |
 
 A theme switch selects that theme's own wallpaper, so re-pick the animated one afterwards.
 
@@ -56,7 +58,7 @@ omarchy-shell animated-background pauseWhenCovered true
 omarchy-shell animated-background pauseWhenCovered false
 omarchy-shell animated-background pauseWhenCovered toggle
 
-# Grid frame rate, the main cost dial. 20 by default
+# Grid and fire frame rate, the main cost dial. 20 by default
 omarchy-shell animated-background fps 10
 
 # Re-read the theme and reinstall the marker images
@@ -74,13 +76,14 @@ your wallpaper changing. Disabling the plugin removes the entry, and the setting
 ## Performance
 
 Measured on a 20 thread machine driving 5120x1440 plus 3440x1440, both desktops visible. A
-static wallpaper with the plugin enabled costs 0.2 percent.
+static wallpaper with the plugin enabled costs 2 percent.
 
 | effect | cost |
 | --- | --- |
-| grid at 20 fps | 11 percent of one core |
-| rain, dense | 25 percent |
-| rain, light | 23 percent |
+| grid at 20 fps | 10 percent of one core |
+| rain, dense | 18 percent |
+| rain, light | 15 percent |
+| fire at 20 fps | 6 percent |
 
 Lower `fps` to make it cheaper, and turn on `pauseWhenCovered` if your desktop is usually
 buried. Smaller screens cost less, and a four thread laptop pays a much larger share. GPU and
@@ -88,7 +91,7 @@ wall power are not included.
 
 ## What it writes
 
-Two marker images copied into `~/.local/state/omarchy/current/theme/backgrounds/`, which is
+Three marker images copied into `~/.local/state/omarchy/current/theme/backgrounds/`, which is
 what makes them appear in the background switcher. Nothing else outside the plugin directory.
 Omarchy recreates that directory on every theme switch, so the copies are disposable and get
 replaced. Set `markers` to false to disable.
@@ -111,7 +114,7 @@ carrying halfwidth katakana it falls back to whatever substitutes.
 - You do not see the theme change animation while an effect is running.
 - The lock screen shows a blurred still, not the animation.
 - Switcher thumbnails are stills in default colours, so they do not match your theme.
-- Any image named `animated-grid.png` or `animated-rain.png` that the switcher can see will
+- Any image named `animated-grid.png`, `animated-rain.png` or `animated-fire.png` that the switcher can see will
   start the matching effect.
 
 ## Development
@@ -121,6 +124,8 @@ an empty input region so clicks pass through. The built in wallpaper renderer is
 
 The grid is split across two layer surfaces at the horizon. Qt Quick repaints a whole window
 whenever any node in it changes, so the static sky commits once and only the floor repaints.
+
+The fire runs on the GPU. Qt loads only the compiled shader, so rebuild it after editing `effects/shaders/fire.frag`: `/usr/lib/qt6/bin/qsb --qt6 -o effects/shaders/fire.frag.qsb effects/shaders/fire.frag`.
 
 Colours come from the active theme's `colors.toml`. Two key schemas exist, named keys such as
 `magenta` and numbered `color0` to `color15` for themes converted from `alacritty.toml`, so
@@ -149,4 +154,4 @@ Swap the verb for `rainStyle` or `pauseWhenCovered`.
 
 This project is MIT. 
 
-The one vendored file, `ScreenRemapGuard.qml`, comes from Omarchy under its own MIT notice, reproduced in [docs/THIRD-PARTY-NOTICES.md](docs/THIRD-PARTY-NOTICES.md).
+`ScreenRemapGuard.qml` comes from Omarchy and the hash in `effects/shaders/fire.frag` from David Hoskins, each under its own MIT notice, reproduced in [docs/THIRD-PARTY-NOTICES.md](docs/THIRD-PARTY-NOTICES.md).
