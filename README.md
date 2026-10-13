@@ -1,13 +1,15 @@
 # Animated Backgrounds
 
 Animated desktop backgrounds for Omarchy, drawn in the colours of whatever theme you have
-active. Three effects: a synthwave sun and grid horizon, falling code, and the fire from PlayStation Doom.
+active. Three effects: a synthwave sun and grid horizon, falling code, and a pixelated Doom fire.
 
 ![The synthwave grid: a banded sun sitting on the horizon above a perspective grid scrolling toward the viewer](docs/grid.gif)
 
 ![The digital rain: columns of mirrored katakana falling down the screen, each stream brightest at its leading glyph](docs/rain.gif)
 
-Both at the shipped defaults, captured on a 3440x1440 display.
+![The Doom fire: pixelated flames white hot at the base, burning up through yellow and orange into black](docs/fire.gif)
+
+All three at the shipped defaults, captured on a 3440x1440 display.
 
 ## Install
 
@@ -31,7 +33,7 @@ effect, and light themes work as well as dark ones (mostly).
 
 |  | animated-grid | animated-rain | animated-fire |
 | --- | --- | --- | --- |
-| `vantablack` | ![The grid on vantablack, monochrome against pure black](docs/grid-vantablack.png) | ![The rain on vantablack, pale glyphs on pure black](docs/rain-vantablack.png) | ![The fire on vantablack, gray flames rising to a white base on pure black](docs/fire-vantablack.png) |
+| `vantablack` | ![The grid on vantablack, monochrome against pure black](docs/grid-vantablack.png) | ![The rain on vantablack, pale glyphs on pure black](docs/rain-vantablack.png) | ![The fire on vantablack, gray flames burning up from a white base into pure black](docs/fire-vantablack.gif) |
 | `catppuccin-latte` | ![The grid on catppuccin-latte, a pale sky over a white floor](docs/grid-latte.png) | ![The rain on catppuccin-latte, blue glyphs on off-white](docs/rain-latte.png) | ![The fire on catppuccin-latte, pink and amber flames darkening to a near black base on off-white](docs/fire-latte.png) |
 
 A theme switch selects that theme's own wallpaper, so re-pick the animated one afterwards.
