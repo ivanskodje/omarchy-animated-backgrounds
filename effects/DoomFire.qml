@@ -9,6 +9,9 @@ Item {
   property bool running: true
   property int fps: 20
 
+  // Role source, normally a ThemePalette. Null keeps the Doom palette.
+  property var colors: null
+
   readonly property int targetRows: 140
   readonly property var shades: [
     0x07, 0x07, 0x07, 0x1f, 0x07, 0x07, 0x2f, 0x0f, 0x07, 0x47, 0x0f, 0x07,
@@ -149,8 +152,9 @@ Item {
         required property int index
         width: 1
         height: 1
-        color: Qt.rgba(fire.shades[index * 3] / 255, fire.shades[index * 3 + 1] / 255,
-                       fire.shades[index * 3 + 2] / 255, 1)
+        color: fire.colors ? fire.colors.fireShades[index]
+                           : Qt.rgba(fire.shades[index * 3] / 255, fire.shades[index * 3 + 1] / 255,
+                                     fire.shades[index * 3 + 2] / 255, 1)
       }
     }
   }

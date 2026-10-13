@@ -317,6 +317,7 @@ Item {
           DoomFire {
             running: !root.covered
             fps: settings.fps
+            colors: settings.themeColors ? theme : null
           }
         }
       }

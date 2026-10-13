@@ -86,6 +86,44 @@ QtObject {
   readonly property color rainBody: contrast(pick(["accent", "green", "color2"], "#3cbf5c"), 0.20, 0.45)
   readonly property color rainHead: contrast(foreground, 0.62, 0.12)
 
+  function mix(a, b, t) {
+    return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1)
+  }
+
+  // Reach a luminance by blending a hue with whichever end lies past the target, so nothing clips.
+  function blendTo(hue, target, near, far) {
+    var lh = relativeLuminance(hue), ln = relativeLuminance(near), lf = relativeLuminance(far)
+    if ((lh - ln) * (lf - lh) <= 0)
+      return scaled(hue, target)
+    if ((target - ln) * (lh - target) >= 0)
+      return mix(near, hue, (target - ln) / (lh - ln))
+    return mix(hue, far, (target - lh) / (lf - lh))
+  }
+
+  readonly property color fireHot: contrast(light ? foreground : pick(["bright_foreground", "foreground", "color15", "color7"], "#ffffff"), 0.62, 0.12)
+
+  // Theme hues at heat 0, 7, 16, 30 and 36, each at the share of the brightness range the Doom palette has there.
+  readonly property var fireShades: {
+    var steps = [0, 7, 16, 30, 36]
+    var share = [0, 0.21, 0.43, 0.67, 1]
+    var hues = [background, pick(["red", "color1"], "#8f2707"),
+                pick(["orange", "bright_red", "color9", "red", "color1"], "#d75f07"),
+                pick(["yellow", "color3"], "#b7b72f"), fireHot]
+    var lb = relativeLuminance(background), lt = relativeLuminance(fireHot)
+    var anchors = [background]
+    for (var k = 1; k < steps.length - 1; k++)
+      anchors.push(blendTo(Qt.darker(hues[k], 1.0), lb + (lt - lb) * share[k], background, fireHot))
+    anchors.push(fireHot)
+    var out = []
+    var at = 0
+    for (var i = 0; i <= 36; i++) {
+      while (steps[at + 1] < i)
+        at++
+      out.push(mix(anchors[at], anchors[at + 1], (i - steps[at]) / (steps[at + 1] - steps[at])))
+    }
+    return out
+  }
+
   property FileView file: FileView {
     path: themePalette.source
     // A theme switch replaces the directory wholesale, which drops a path watch
