@@ -26,13 +26,13 @@ on the desktop keep working.
 
 ## Themes
 
-The grid and the rain follow your active theme, with no setup. A monochrome theme gives a monochrome
-effect, and light themes work as well as dark ones (mostly). The fire keeps the Doom palette.
+All three effects follow your active theme, with no setup. A monochrome theme gives a monochrome
+effect, and light themes work as well as dark ones (mostly).
 
-|  | animated-grid | animated-rain |
-| --- | --- | --- |
-| `vantablack` | ![The grid on vantablack, monochrome against pure black](docs/grid-vantablack.png) | ![The rain on vantablack, pale glyphs on pure black](docs/rain-vantablack.png) |
-| `catppuccin-latte` | ![The grid on catppuccin-latte, a pale sky over a white floor](docs/grid-latte.png) | ![The rain on catppuccin-latte, blue glyphs on off-white](docs/rain-latte.png) |
+|  | animated-grid | animated-rain | animated-fire |
+| --- | --- | --- | --- |
+| `vantablack` | ![The grid on vantablack, monochrome against pure black](docs/grid-vantablack.png) | ![The rain on vantablack, pale glyphs on pure black](docs/rain-vantablack.png) | ![The fire on vantablack, gray flames rising to a white base on pure black](docs/fire-vantablack.png) |
+| `catppuccin-latte` | ![The grid on catppuccin-latte, a pale sky over a white floor](docs/grid-latte.png) | ![The rain on catppuccin-latte, blue glyphs on off-white](docs/rain-latte.png) | ![The fire on catppuccin-latte, pink and amber flames darkening to a near black base on off-white](docs/fire-latte.png) |
 
 A theme switch selects that theme's own wallpaper, so re-pick the animated one afterwards.
 
