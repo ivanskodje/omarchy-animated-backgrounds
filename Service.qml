@@ -316,6 +316,7 @@ Item {
         scene: Component {
           DoomFire {
             running: !root.covered
+            fps: settings.fps
           }
         }
       }

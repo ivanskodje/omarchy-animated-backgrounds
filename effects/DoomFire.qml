@@ -2,17 +2,15 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// PlayStation Doom fire, the scatter from Fabien Sanglard's article.
-// Each cell writes one neighbor above and cools by zero or one. Unwritten
-// cells keep their heat, which is what separates the tongues. The buffer is
-// about 140 rows and drawn nearest-neighbor, so the cells stay square.
+// PlayStation Doom fire, the scatter from Fabien Sanglard's article, run on the GPU.
 Item {
   id: fire
 
   property bool running: true
+  property int fps: 20
 
   readonly property int targetRows: 140
-  readonly property var palette: [
+  readonly property var shades: [
     0x07, 0x07, 0x07, 0x1f, 0x07, 0x07, 0x2f, 0x0f, 0x07, 0x47, 0x0f, 0x07,
     0x57, 0x17, 0x07, 0x67, 0x1f, 0x07, 0x77, 0x1f, 0x07, 0x8f, 0x27, 0x07,
     0x9f, 0x2f, 0x07, 0xaf, 0x3f, 0x07, 0xbf, 0x47, 0x07, 0xc7, 0x47, 0x07,
@@ -25,103 +23,166 @@ Item {
     0xff, 0xff, 0xff
   ]
 
-  property var heat: null
-  property int cols: 2
-  property int rows: 2
+  readonly property int cell: Math.max(1, Math.floor(height / targetRows))
+  readonly property int cols: Math.max(2, Math.floor(width / cell))
+  readonly property int rows: Math.max(2, Math.floor(height / cell))
 
-  function ensureSize() {
-    var cell = Math.max(1, Math.floor(height / targetRows))
-    var nextCols = Math.max(2, Math.floor(width / cell))
-    var nextRows = Math.max(2, Math.floor(height / cell))
-    if (heat && nextCols === cols && nextRows === rows && heat.length === nextCols * nextRows)
-      return
+  // Must match MAX_STEPS in shaders/fire.frag. Each snapshot costs Qt an extra presented frame.
+  readonly property int snapshotSteps: 8
 
-    cols = nextCols
-    rows = nextRows
-    var next = new Array(nextCols * nextRows)
-    for (var i = 0; i < next.length; i++)
-      next[i] = 0
-    var bottom = (nextRows - 1) * nextCols
-    for (var x = 0; x < nextCols; x++)
-      next[bottom + x] = 36
-    heat = next
-  }
+  // The fire on screen is at `step`; the newest snapshot holds it at `base`, or holds nothing until `lit`.
+  property int step: 0
+  property int base: 0
+  property bool lit: false
+  property bool pending: false
+  property bool latestB: false
+  // Without it, screens lit together would burn identical flames.
+  property int salt: Math.floor(Math.random() * 4096)
 
-  function step() {
-    if (width < 2 || height < 2)
-      return
-    ensureSize()
-    var w = cols
-    var h = heat
-    var len = h.length
-    var src, rand, shift, index, cooled
-    for (src = 0; src < len; src++) {
-      rand = Math.round(Math.random() * 3) & 3
-      shift = rand === 0 ? -1 : rand === 3 ? 1 : 0
-      index = src - w + shift
-      if (index < 0)
-        index = 0
-      if (index >= len)
-        continue
-      cooled = h[src] - (rand & 1)
-      h[index] = cooled > 0 ? cooled : 0
+  onColsChanged: relight()
+  onRowsChanged: relight()
+  // heatB, snapshotB, heatA and snapshotA sample each other, so unless the cycle is cut here Qt keeps a deleted window referenced and the next update() crashes.
+  Window.onWindowChanged: {
+    if (Window.window) {
+      snapshotA.heat = Qt.binding(function() { return heatB })
+    } else {
+      snapshotA.heat = null
+      relight()
     }
-    var bottom = (rows - 1) * w
-    for (var x = 0; x < w; x++)
-      h[bottom + x] = 36
-    canvas.requestPaint()
   }
 
-  Rectangle {
-    anchors.fill: parent
-    color: "#070707"
+  function relight() {
+    step = 0
+    base = 0
+    lit = false
+    salt = Math.floor(Math.random() * 4096)
   }
 
-  Canvas {
-    id: canvas
-    anchors.fill: parent
-    antialiasing: false
-    renderStrategy: Canvas.Immediate
+  function stepIndex(n) {
+    return Qt.point(n % 4096, (Math.floor(n / 4096) + salt) % 4096)
+  }
 
-    onPaint: {
-      var h = fire.heat
-      if (!h || h.length === 0)
-        return
-      var ctx = getContext("2d")
-      if (!ctx)
-        return
+  function advance() {
+    if (step + 1 - base < snapshotSteps) {
+      step++
+      return
+    }
+    // The last snapshot has not rendered yet, so the next one would read a texture that does not hold it.
+    if (pending)
+      return
+    var into = latestB ? snapshotA : snapshotB
+    var layer = latestB ? heatA : heatB
+    into.base = stepIndex(base)
+    into.origin = lit ? 0 : 1
+    pending = true
+    layer.scheduleUpdate()
+    latestB = !latestB
+    step++
+    base = step
+    lit = true
+  }
 
-      var w = fire.cols
-      var r = fire.rows
-      var cellW = width / w
-      var cellH = height / r
-      var colors = fire.palette
-      var y, x, run, index, at
-      ctx.reset()
-      for (y = 0; y < r; y++) {
-        run = h[y * w]
-        at = 0
-        for (x = 1; x <= w; x++) {
-          index = x < w ? h[y * w + x] : -1
-          if (index === run)
-            continue
-          var p = run * 3
-          ctx.fillStyle = Qt.rgba(colors[p] / 255, colors[p + 1] / 255, colors[p + 2] / 255, 1)
-          ctx.fillRect(at * cellW, y * cellH, (x - at) * cellW, cellH)
-          at = x
-          run = index
-        }
+  ShaderEffect {
+    id: snapshotA
+    width: fire.cols
+    height: fire.rows
+    blending: false
+
+    property var heat: heatB
+    property var shades: shadeSource
+    property size cells: Qt.size(fire.cols, fire.rows)
+    property point base: Qt.point(0, 0)
+    property real steps: fire.snapshotSteps
+    property real origin: 1
+    property real draw: 0
+
+    fragmentShader: Qt.resolvedUrl("shaders/fire.frag.qsb")
+  }
+
+  ShaderEffect {
+    id: snapshotB
+    width: fire.cols
+    height: fire.rows
+    blending: false
+
+    property var heat: heatA
+    property var shades: shadeSource
+    property size cells: Qt.size(fire.cols, fire.rows)
+    property point base: Qt.point(0, 0)
+    property real steps: fire.snapshotSteps
+    property real origin: 1
+    property real draw: 0
+
+    fragmentShader: Qt.resolvedUrl("shaders/fire.frag.qsb")
+  }
+
+  // Not live: a snapshot renders only when scheduled, never because something else repainted.
+  ShaderEffectSource {
+    id: heatA
+    sourceItem: snapshotA
+    hideSource: true
+    visible: false
+    live: false
+    smooth: false
+    textureSize: Qt.size(fire.cols, fire.rows)
+    onScheduledUpdateCompleted: fire.pending = false
+  }
+
+  ShaderEffectSource {
+    id: heatB
+    sourceItem: snapshotB
+    hideSource: true
+    visible: false
+    live: false
+    smooth: false
+    textureSize: Qt.size(fire.cols, fire.rows)
+    onScheduledUpdateCompleted: fire.pending = false
+  }
+
+  Row {
+    id: shadeRow
+
+    Repeater {
+      model: 37
+
+      Rectangle {
+        required property int index
+        width: 1
+        height: 1
+        color: Qt.rgba(fire.shades[index * 3] / 255, fire.shades[index * 3 + 1] / 255,
+                       fire.shades[index * 3 + 2] / 255, 1)
       }
     }
   }
 
-  Timer {
-    interval: 33
-    repeat: true
-    running: fire.running && fire.visible && fire.width > 2 && fire.height > 2
-    onTriggered: fire.step()
+  ShaderEffectSource {
+    id: shadeSource
+    sourceItem: shadeRow
+    hideSource: true
+    visible: false
+    smooth: false
+    textureSize: Qt.size(37, 1)
   }
 
-  onWidthChanged: fire.step()
-  onHeightChanged: fire.step()
+  ShaderEffect {
+    anchors.fill: parent
+    blending: false
+
+    property var heat: fire.latestB ? heatB : heatA
+    property var shades: shadeSource
+    property size cells: Qt.size(fire.cols, fire.rows)
+    property point base: fire.stepIndex(fire.base)
+    property real steps: fire.step - fire.base
+    property real origin: fire.lit ? 0 : 1
+    property real draw: 1
+
+    fragmentShader: Qt.resolvedUrl("shaders/fire.frag.qsb")
+  }
+
+  Timer {
+    interval: Math.max(16, Math.round(1000 / fire.fps))
+    repeat: true
+    running: fire.running && fire.visible && fire.width > 2 && fire.height > 2
+    onTriggered: fire.advance()
+  }
 }

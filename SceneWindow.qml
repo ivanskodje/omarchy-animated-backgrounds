@@ -21,8 +21,7 @@ PanelWindow {
   // gestures, which are what open the background and theme switchers.
   mask: Region {}
 
-  // Never destroyed, only hidden. updatesEnabled is left alone: a parked layer
-  // surface can lose its buffer and leave a black desktop.
+  // Hiding deletes the QQuickWindow and only the item tree survives. updatesEnabled is left alone: a parked layer surface can lose its buffer and leave a black desktop.
   visible: shown && !remapGuard.remapping
 
   ScreenRemapGuard {
